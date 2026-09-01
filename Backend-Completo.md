@@ -6,12 +6,6 @@ Arquitetura: **Model → Service → Controller → Routes**.
 
 ## 📦 Instalação
 
-1. Instale as dependências:
-
-```bash
-npm install
-```
-
 2. Se quiser instalar do zero (sem o `package.json` pronto), os comandos seriam:
 
 ```bash
