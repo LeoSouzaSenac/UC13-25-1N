@@ -1193,3 +1193,744 @@ Sempre pense nestas perguntas:
 ```
 
 Se souber responder essas perguntas, normalmente já consegue montar a requisição corretamente.
+
+App.tsx
+```tsx
+import { useEffect, useState } from "react"
+import AuthForm from "./components/AuthForm"
+import PostForm from "./components/PostForm"
+import PostList from "./components/PostList"
+import { listarPosts } from "./services/api"
+
+export default function App() {
+
+    const [posts, setPosts] = useState([])
+    const [usuario, setUsuario] = useState(null)
+    const [token, setToken] = useState(null)
+
+    const [postEmEdicao, setPostEmEdicao] = useState(null)
+    const [erro, setErro] = useState("")
+
+
+    // Quando a aplicação abre, recuperamos os dados salvos
+    // no navegador.
+    useEffect(() => {
+
+        const tokenSalvo = localStorage.getItem("token")
+        const usuarioSalvo = localStorage.getItem("usuario")
+
+        if (tokenSalvo && usuarioSalvo) {
+
+            setToken(tokenSalvo)
+            setUsuario(JSON.parse(usuarioSalvo))
+        }
+
+    }, [])
+
+
+    // Carrega os posts quando a aplicação inicia.
+    useEffect(() => {
+
+        carregarPosts()
+
+    }, [])
+
+
+    async function carregarPosts() {
+
+        try {
+
+            setErro("")
+
+            const data = await listarPosts()
+
+            setPosts(data)
+
+        } catch (error) {
+
+            setErro(error.message)
+        }
+    }
+
+
+    function handleLogin(user, jwtToken) {
+
+        setUsuario(user)
+        setToken(jwtToken)
+
+        // Guardamos o token e o usuário no navegador.
+        localStorage.setItem("token", jwtToken)
+        localStorage.setItem("usuario", JSON.stringify(user))
+    }
+
+
+    function handleLogout() {
+
+        setUsuario(null)
+        setToken(null)
+        setPostEmEdicao(null)
+
+        localStorage.removeItem("token")
+        localStorage.removeItem("usuario")
+    }
+
+
+    async function handlePostSalvo() {
+
+        setPostEmEdicao(null)
+
+        await carregarPosts()
+    }
+
+
+    return (
+        <>
+
+            <header className="topbar">
+
+                <div>
+                    <h1>React + Fetch</h1>
+                    <p>Frontend consumindo a API de posts</p>
+                </div>
+
+                {usuario && (
+                    <div className="user-area">
+
+                        <span>
+                            Olá, <strong>{usuario.name}</strong>
+                        </span>
+
+                        <button
+                            className="secondary"
+                            onClick={handleLogout}
+                        >
+                            Sair
+                        </button>
+
+                    </div>
+                )}
+
+            </header>
+
+
+            <main className="container">
+
+                {!usuario && (
+                    <AuthForm onLogin={handleLogin} />
+                )}
+
+
+                {usuario && (
+                    <PostForm
+                        token={token}
+                        postEmEdicao={postEmEdicao}
+                        onSalvo={handlePostSalvo}
+                        onCancelar={() => setPostEmEdicao(null)}
+                    />
+                )}
+
+
+                <div className="section-title">
+
+                    <div>
+                        <h2>Posts</h2>
+                        <p>Todos os posts cadastrados no backend.</p>
+                    </div>
+
+                    <button
+                        className="secondary"
+                        onClick={carregarPosts}
+                    >
+                        Atualizar
+                    </button>
+
+                </div>
+
+
+                {erro && (
+                    <p className="message error">
+                        {erro}
+                    </p>
+                )}
+
+
+                <PostList
+                    posts={posts}
+                    usuario={usuario}
+                    token={token}
+                    onEditar={setPostEmEdicao}
+                    onExcluido={carregarPosts}
+                />
+
+            </main>
+
+        </>
+    )
+}
+
+```
+
+components/AuthForm.tsx
+```tsx
+import { useState } from "react"
+import {
+    cadastrarUsuario,
+    fazerLogin
+} from "../services/api"
+
+export default function AuthForm({ onLogin }) {
+
+    const [modo, setModo] = useState("login")
+
+    const [name, setName] = useState("")
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
+
+    const [mensagem, setMensagem] = useState("")
+    const [carregando, setCarregando] = useState(false)
+
+
+    async function handleSubmit(event) {
+
+        event.preventDefault()
+
+        setMensagem("")
+        setCarregando(true)
+
+        try {
+
+            if (modo === "cadastro") {
+
+                await cadastrarUsuario({
+                    name,
+                    email,
+                    password
+                })
+
+                setMensagem("Cadastro realizado. Agora faça login.")
+                setModo("login")
+                setName("")
+                setPassword("")
+
+                return
+            }
+
+            const result = await fazerLogin({
+                email,
+                password
+            })
+
+            onLogin(result.user, result.token)
+
+        } catch (error) {
+
+            setMensagem(error.message)
+
+        } finally {
+
+            setCarregando(false)
+        }
+    }
+
+
+    return (
+        <section className="card auth-card">
+
+            <h2>
+                {modo === "login" ? "Entrar" : "Criar conta"}
+            </h2>
+
+            <form onSubmit={handleSubmit}>
+
+                {modo === "cadastro" && (
+                    <label>
+                        Nome
+
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(event) => setName(event.target.value)}
+                            required
+                        />
+                    </label>
+                )}
+
+                <label>
+                    E-mail
+
+                    <input
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        required
+                    />
+                </label>
+
+                <label>
+                    Senha
+
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        required
+                    />
+                </label>
+
+                <button type="submit" disabled={carregando}>
+                    {
+                        carregando
+                            ? "Aguarde..."
+                            : modo === "login"
+                                ? "Entrar"
+                                : "Cadastrar"
+                    }
+                </button>
+
+            </form>
+
+            {mensagem && (
+                <p className="message">
+                    {mensagem}
+                </p>
+            )}
+
+            <button
+                className="link-button"
+                onClick={() => {
+                    setModo(modo === "login" ? "cadastro" : "login")
+                    setMensagem("")
+                }}
+            >
+                {
+                    modo === "login"
+                        ? "Ainda não tenho conta"
+                        : "Já tenho uma conta"
+                }
+            </button>
+
+        </section>
+    )
+}
+
+```
+
+components/PostForm.jsx
+```jsx
+import { useEffect, useState } from "react"
+import {
+    atualizarPost,
+    criarPost
+} from "../services/api"
+
+export default function PostForm({
+    token,
+    postEmEdicao,
+    onSalvo,
+    onCancelar
+}) {
+
+    const [title, setTitle] = useState("")
+    const [content, setContent] = useState("")
+    const [mensagem, setMensagem] = useState("")
+    const [carregando, setCarregando] = useState(false)
+
+
+    useEffect(() => {
+
+        if (postEmEdicao) {
+
+            setTitle(postEmEdicao.title)
+            setContent(postEmEdicao.content)
+
+        } else {
+
+            setTitle("")
+            setContent("")
+        }
+
+    }, [postEmEdicao])
+
+
+    async function handleSubmit(event) {
+
+        event.preventDefault()
+
+        setMensagem("")
+        setCarregando(true)
+
+        try {
+
+            if (postEmEdicao) {
+
+                await atualizarPost(
+                    postEmEdicao.id,
+                    {
+                        title,
+                        content
+                    },
+                    token
+                )
+
+            } else {
+
+                await criarPost(
+                    {
+                        title,
+                        content
+                    },
+                    token
+                )
+            }
+
+            setTitle("")
+            setContent("")
+
+            onSalvo()
+
+        } catch (error) {
+
+            setMensagem(error.message)
+
+        } finally {
+
+            setCarregando(false)
+        }
+    }
+
+
+    return (
+        <section className="card">
+
+            <h2>
+                {postEmEdicao ? "Editar post" : "Novo post"}
+            </h2>
+
+            <form onSubmit={handleSubmit}>
+
+                <label>
+                    Título
+
+                    <input
+                        type="text"
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        required
+                    />
+                </label>
+
+                <label>
+                    Conteúdo
+
+                    <textarea
+                        value={content}
+                        onChange={(event) => setContent(event.target.value)}
+                        required
+                        rows="6"
+                    />
+                </label>
+
+                <div className="actions">
+
+                    <button
+                        type="submit"
+                        disabled={carregando}
+                    >
+                        {
+                            carregando
+                                ? "Salvando..."
+                                : postEmEdicao
+                                    ? "Salvar alterações"
+                                    : "Publicar"
+                        }
+                    </button>
+
+                    {postEmEdicao && (
+                        <button
+                            type="button"
+                            className="secondary"
+                            onClick={onCancelar}
+                        >
+                            Cancelar
+                        </button>
+                    )}
+
+                </div>
+
+            </form>
+
+            {mensagem && (
+                <p className="message">
+                    {mensagem}
+                </p>
+            )}
+
+        </section>
+    )
+}
+
+```
+
+components/PostList.jsx
+```jsx
+import { Pencil, Trash2 } from "lucide-react"
+import { excluirPost } from "../services/api"
+
+export default function PostList({
+    posts,
+    usuario,
+    token,
+    onEditar,
+    onExcluido
+}) {
+
+    async function handleExcluir(post) {
+
+        const confirmou = window.confirm(
+            `Deseja realmente excluir "${post.title}"?`
+        )
+
+        if (!confirmou) {
+            return
+        }
+
+        try {
+
+            await excluirPost(post.id, token)
+
+            onExcluido()
+
+        } catch (error) {
+
+            alert(error.message)
+        }
+    }
+
+
+    if (posts.length === 0) {
+        return (
+            <section className="card">
+                <p>Nenhum post cadastrado ainda.</p>
+            </section>
+        )
+    }
+
+
+    return (
+        <section className="posts">
+
+            {posts.map(post => {
+
+                const ehDono =
+                    usuario &&
+                    post.user &&
+                    post.user.id === usuario.id
+
+                return (
+                    <article className="card post" key={post.id}>
+
+                        <div className="post-header">
+
+                            <div>
+                                <h2>{post.title}</h2>
+
+                                <small>
+                                    por {post.user?.name || "Usuário"}
+                                </small>
+                            </div>
+
+                            {ehDono && (
+                                <div className="post-actions">
+
+                                    <button
+                                        className="icon-button"
+                                        onClick={() => onEditar(post)}
+                                        title="Editar"
+                                    >
+                                        <Pencil size={18} />
+                                    </button>
+
+                                    <button
+                                        className="icon-button danger"
+                                        onClick={() => handleExcluir(post)}
+                                        title="Excluir"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+
+                                </div>
+                            )}
+
+                        </div>
+
+                        <p className="post-content">
+                            {post.content}
+                        </p>
+
+                    </article>
+                )
+            })}
+
+        </section>
+    )
+}
+
+```
+
+services/api.js
+```js
+const API_URL = "http://localhost:3000"
+
+
+// =========================================================
+// CADASTRO
+// =========================================================
+
+export async function cadastrarUsuario(data) {
+
+    const response = await fetch(`${API_URL}/users`, {
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify(data)
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+        throw new Error(result.message || "Erro ao cadastrar usuário.")
+    }
+
+    return result
+}
+
+
+// =========================================================
+// LOGIN
+// =========================================================
+
+export async function fazerLogin(data) {
+
+    const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify(data)
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+        throw new Error(result.message || "Erro ao fazer login.")
+    }
+
+    return result
+}
+
+
+// =========================================================
+// LISTAR POSTS
+// =========================================================
+
+export async function listarPosts() {
+
+    const response = await fetch(`${API_URL}/posts`)
+
+    const result = await response.json()
+
+    if (!response.ok) {
+        throw new Error(result.message || "Erro ao carregar posts.")
+    }
+
+    return result
+}
+
+
+// =========================================================
+// CRIAR POST
+// =========================================================
+
+export async function criarPost(data, token) {
+
+    const response = await fetch(`${API_URL}/posts`, {
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json",
+
+            // O backend espera:
+            // Authorization: Bearer TOKEN
+            "Authorization": `Bearer ${token}`
+        },
+
+        body: JSON.stringify(data)
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+        throw new Error(result.message || "Erro ao criar post.")
+    }
+
+    return result
+}
+
+
+// =========================================================
+// ATUALIZAR POST
+// =========================================================
+
+export async function atualizarPost(id, data, token) {
+
+    const response = await fetch(`${API_URL}/posts/${id}`, {
+        method: "PUT",
+
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+
+        body: JSON.stringify(data)
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+        throw new Error(result.message || "Erro ao atualizar post.")
+    }
+
+    return result
+}
+
+
+// =========================================================
+// EXCLUIR POST
+// =========================================================
+
+export async function excluirPost(id, token) {
+
+    const response = await fetch(`${API_URL}/posts/${id}`, {
+        method: "DELETE",
+
+        headers: {
+            "Authorization": `Bearer ${token}`
+        }
+    })
+
+    // DELETE retorna 204 No Content.
+    // Nesse caso não existe JSON no corpo da resposta.
+    if (!response.ok) {
+
+        const result = await response.json()
+
+        throw new Error(result.message || "Erro ao excluir post.")
+    }
+}
+
+```
