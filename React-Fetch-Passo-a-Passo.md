@@ -1197,44 +1197,116 @@ Se souber responder essas perguntas, normalmente já consegue montar a requisiç
 App.tsx
 ```tsx
 import { useEffect, useState } from "react"
+
 import AuthForm from "./components/AuthForm"
 import PostForm from "./components/PostForm"
 import PostList from "./components/PostList"
+
 import { listarPosts } from "./services/api"
+
 
 export default function App() {
 
+    // =========================================================
+    // 1. ESTADOS PRINCIPAIS DA APLICAÇÃO
+    // =========================================================
+
+    // Guarda todos os posts recebidos do backend.
     const [posts, setPosts] = useState([])
+
+
+    // Guarda os dados do usuário que está logado.
+    //
+    // Exemplo:
+    //
+    // {
+    //     id: 1,
+    //     name: "Leonardo",
+    //     email: "leo@email.com"
+    // }
+    //
+    // Quando usuario é null, significa que ninguém está logado.
     const [usuario, setUsuario] = useState(null)
+
+
+    // Guarda o JSON Web Token (JWT) recebido do backend
+    // depois que o login é realizado.
+    //
+    // Esse token será utilizado para provar ao backend
+    // que o usuário está autenticado.
     const [token, setToken] = useState(null)
 
+
+    // Guarda o post que o usuário escolheu editar.
+    //
+    // Se for null:
+    // o formulário cria um novo post.
+    //
+    // Se tiver um objeto:
+    // o formulário edita aquele post.
     const [postEmEdicao, setPostEmEdicao] = useState(null)
+
+
+    // Guarda mensagens de erro ao carregar os posts.
     const [erro, setErro] = useState("")
 
 
-    // Quando a aplicação abre, recuperamos os dados salvos
-    // no navegador.
+
+    // =========================================================
+    // 2. RECUPERANDO LOGIN SALVO NO NAVEGADOR
+    // =========================================================
+
+    // O useEffect com [] executa apenas uma vez,
+    // quando o componente App é criado.
+    //
+    // Aqui verificamos se o usuário já havia feito login
+    // anteriormente.
     useEffect(() => {
 
+        // 2.1 Procuramos no localStorage o token salvo.
         const tokenSalvo = localStorage.getItem("token")
+
+
+        // 2.2 Procuramos também os dados do usuário.
         const usuarioSalvo = localStorage.getItem("usuario")
 
+
+        // 2.3 Se os dois existem, restauramos a sessão.
         if (tokenSalvo && usuarioSalvo) {
 
+            // Guardamos novamente o token no estado do React.
             setToken(tokenSalvo)
+
+
+            // O localStorage salva somente strings.
+            //
+            // Por isso usamos JSON.parse() para transformar
+            // a string novamente em um objeto JavaScript.
             setUsuario(JSON.parse(usuarioSalvo))
         }
 
     }, [])
 
 
-    // Carrega os posts quando a aplicação inicia.
+
+    // =========================================================
+    // 3. CARREGANDO OS POSTS QUANDO A APLICAÇÃO ABRE
+    // =========================================================
+
     useEffect(() => {
 
+        // Assim que o App é carregado,
+        // chamamos a função responsável por buscar os posts
+        // no backend.
         carregarPosts()
 
     }, [])
 
+
+
+    // =========================================================
+    // 4. BUSCANDO OS POSTS NO BACKEND
+    // =========================================================
 
     async function carregarPosts() {
 
@@ -1242,46 +1314,134 @@ export default function App() {
 
             setErro("")
 
+
+            // 4.1 Chamamos a função listarPosts().
+            //
+            // Ela está no arquivo services/api.js.
+            //
+            // Essa função fará uma requisição:
+            //
+            // GET http://localhost:3000/posts
+            //
+            // O await faz o JavaScript esperar a resposta
+            // do backend antes de continuar.
             const data = await listarPosts()
 
+
+            // 4.2 Quando o backend responde,
+            // colocamos os posts recebidos no estado.
+            //
+            // Isso faz o React renderizar novamente a tela.
             setPosts(data)
 
         } catch (error) {
 
+            // 4.3 Se alguma coisa der errado na requisição,
+            // mostramos a mensagem de erro.
             setErro(error.message)
         }
     }
 
 
+
+    // =========================================================
+    // 5. RECEBENDO O RESULTADO DO LOGIN
+    // =========================================================
+
+    // Essa função será chamada pelo componente AuthForm
+    // depois que o backend aceitar email e senha.
+    //
+    // Ela recebe:
+    //
+    // user     -> dados do usuário
+    // jwtToken -> token criado pelo backend
     function handleLogin(user, jwtToken) {
 
+        // 5.1 Guardamos o usuário no estado.
         setUsuario(user)
+
+
+        // 5.2 Guardamos o token no estado.
+        //
+        // Esse token poderá ser enviado para o backend
+        // nas requisições protegidas.
         setToken(jwtToken)
 
-        // Guardamos o token e o usuário no navegador.
+
+
+        // =====================================================
+        // 6. SALVANDO A SESSÃO NO LOCALSTORAGE
+        // =====================================================
+
+        // Se salvássemos somente no estado,
+        // o login seria perdido quando a página fosse atualizada.
+        //
+        // Por isso também salvamos no localStorage.
+
+
+        // 6.1 Salvamos o token.
         localStorage.setItem("token", jwtToken)
-        localStorage.setItem("usuario", JSON.stringify(user))
+
+
+        // 6.2 Como usuario é um objeto,
+        // precisamos convertê-lo para texto usando JSON.stringify().
+        localStorage.setItem(
+            "usuario",
+            JSON.stringify(user)
+        )
     }
 
 
+
+    // =========================================================
+    // 7. LOGOUT
+    // =========================================================
+
     function handleLogout() {
 
+        // 7.1 Removemos o usuário do estado.
         setUsuario(null)
+
+
+        // 7.2 Removemos o token do estado.
+        //
+        // A partir daqui o frontend não poderá mais
+        // realizar requisições protegidas.
         setToken(null)
+
+
+        // 7.3 Caso estivesse editando algum post,
+        // cancelamos a edição.
         setPostEmEdicao(null)
 
+
+        // 7.4 Também apagamos os dados salvos no navegador.
         localStorage.removeItem("token")
         localStorage.removeItem("usuario")
     }
 
 
+
+    // =========================================================
+    // 8. DEPOIS DE CRIAR OU EDITAR UM POST
+    // =========================================================
+
     async function handlePostSalvo() {
 
+        // Saímos do modo de edição.
         setPostEmEdicao(null)
 
+
+        // Buscamos novamente os posts no backend
+        // para mostrar os dados atualizados.
         await carregarPosts()
     }
 
+
+
+    // =========================================================
+    // 9. INTERFACE
+    // =========================================================
 
     return (
         <>
@@ -1293,7 +1453,13 @@ export default function App() {
                     <p>Frontend consumindo a API de posts</p>
                 </div>
 
+
+                {/* 
+                    9.1 Só mostramos os dados do usuário
+                    e o botão Sair quando existe um usuário logado.
+                */}
                 {usuario && (
+
                     <div className="user-area">
 
                         <span>
@@ -1308,26 +1474,53 @@ export default function App() {
                         </button>
 
                     </div>
+
                 )}
 
             </header>
 
 
+
             <main className="container">
 
+
+                {/* 
+                    9.2 Se NÃO existe usuário logado,
+                    mostramos o formulário de login/cadastro.
+                */}
                 {!usuario && (
-                    <AuthForm onLogin={handleLogin} />
+
+                    <AuthForm
+                        onLogin={handleLogin}
+                    />
+
                 )}
 
 
+
+                {/* 
+                    9.3 Se existe usuário logado,
+                    mostramos o formulário de posts.
+
+                    Também enviamos o TOKEN para o PostForm.
+
+                    O PostForm precisará desse token para chamar
+                    rotas protegidas do backend, como:
+
+                    POST /posts
+                    PUT /posts/:id
+                */}
                 {usuario && (
+
                     <PostForm
                         token={token}
                         postEmEdicao={postEmEdicao}
                         onSalvo={handlePostSalvo}
                         onCancelar={() => setPostEmEdicao(null)}
                     />
+
                 )}
+
 
 
                 <div className="section-title">
@@ -1347,13 +1540,36 @@ export default function App() {
                 </div>
 
 
+
                 {erro && (
+
                     <p className="message error">
                         {erro}
                     </p>
+
                 )}
 
 
+
+                {/* 
+                    9.4 Enviamos para PostList:
+
+                    posts
+                        lista recebida do backend
+
+                    usuario
+                        usuário atualmente logado
+
+                    token
+                        JWT utilizado para excluir posts
+
+                    onEditar
+                        função que coloca um post em modo de edição
+
+                    onExcluido
+                        função usada para atualizar a lista
+                        depois de uma exclusão
+                */}
                 <PostList
                     posts={posts}
                     usuario={usuario}
@@ -1367,117 +1583,263 @@ export default function App() {
         </>
     )
 }
-
 ```
 
 components/AuthForm.tsx
 ```tsx
 import { useState } from "react"
+
 import {
     cadastrarUsuario,
     fazerLogin
 } from "../services/api"
 
+
 export default function AuthForm({ onLogin }) {
 
+    // =========================================================
+    // 1. CONTROLANDO LOGIN E CADASTRO
+    // =========================================================
+
+    // O mesmo componente será utilizado para duas funções:
+    //
+    // login
+    // cadastro
+    //
+    // Começamos mostrando o login.
     const [modo, setModo] = useState("login")
 
+
+    // Dados preenchidos pelo usuário.
     const [name, setName] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
 
+
+    // Mensagem de erro ou sucesso.
     const [mensagem, setMensagem] = useState("")
+
+
+    // Controla se existe uma requisição acontecendo.
     const [carregando, setCarregando] = useState(false)
 
 
+
+    // =========================================================
+    // 2. ENVIO DO FORMULÁRIO
+    // =========================================================
+
     async function handleSubmit(event) {
 
+        // Impede o comportamento padrão do formulário,
+        // que seria recarregar a página.
         event.preventDefault()
+
 
         setMensagem("")
         setCarregando(true)
 
+
         try {
+
+            // =================================================
+            // 3. CADASTRO
+            // =================================================
 
             if (modo === "cadastro") {
 
+                // 3.1 Chamamos a função cadastrarUsuario()
+                // que está em services/api.js.
+                //
+                // Estamos enviando um objeto:
+                //
+                // {
+                //     name,
+                //     email,
+                //     password
+                // }
+                //
+                // A função transformar esse objeto em JSON
+                // e enviar para:
+                //
+                // POST /users
                 await cadastrarUsuario({
                     name,
                     email,
                     password
                 })
 
-                setMensagem("Cadastro realizado. Agora faça login.")
+
+                setMensagem(
+                    "Cadastro realizado. Agora faça login."
+                )
+
+
+                // Voltamos para o formulário de login.
                 setModo("login")
+
+
+                // Limpamos alguns campos.
                 setName("")
                 setPassword("")
+
 
                 return
             }
 
+
+
+            // =================================================
+            // 4. LOGIN
+            // =================================================
+
+            // 4.1 Enviamos email e senha para o backend.
+            //
+            // A função fazerLogin() fará:
+            //
+            // POST /auth/login
+            //
+            // enviando:
+            //
+            // {
+            //     email,
+            //     password
+            // }
             const result = await fazerLogin({
                 email,
                 password
             })
 
-            onLogin(result.user, result.token)
+
+
+            // =================================================
+            // 5. RECEBENDO O TOKEN
+            // =================================================
+
+            // Se email e senha estiverem corretos,
+            // esperamos que o backend responda algo parecido com:
+            //
+            // {
+            //     user: {
+            //         id: 1,
+            //         name: "Leonardo",
+            //         email: "leo@email.com"
+            //     },
+            //
+            //     token: "eyJhbGciOiJIUzI1NiIs..."
+            // }
+            //
+            // O token foi criado pelo backend.
+            //
+            // O frontend NÃO cria o token.
+            //
+            // O frontend apenas recebe, guarda e envia
+            // esse token posteriormente.
+
+
+            // 5.1 Chamamos a função onLogin recebida do App.
+            //
+            // Estamos mandando:
+            //
+            // result.user  -> dados do usuário
+            // result.token -> JSON Web Token
+            //
+            // Quem vai salvar esses dados será o App.jsx.
+            onLogin(
+                result.user,
+                result.token
+            )
+
 
         } catch (error) {
 
+            // Se o backend responder com erro,
+            // mostramos a mensagem.
             setMensagem(error.message)
 
         } finally {
 
+            // Executa tanto em caso de sucesso quanto erro.
             setCarregando(false)
         }
     }
 
 
+
     return (
+
         <section className="card auth-card">
 
             <h2>
-                {modo === "login" ? "Entrar" : "Criar conta"}
+                {modo === "login"
+                    ? "Entrar"
+                    : "Criar conta"}
             </h2>
+
 
             <form onSubmit={handleSubmit}>
 
+
                 {modo === "cadastro" && (
+
                     <label>
+
                         Nome
 
                         <input
                             type="text"
                             value={name}
-                            onChange={(event) => setName(event.target.value)}
+                            onChange={(event) =>
+                                setName(event.target.value)
+                            }
                             required
                         />
+
                     </label>
+
                 )}
 
+
+
                 <label>
+
                     E-mail
 
                     <input
                         type="email"
                         value={email}
-                        onChange={(event) => setEmail(event.target.value)}
+                        onChange={(event) =>
+                            setEmail(event.target.value)
+                        }
                         required
                     />
+
                 </label>
 
+
+
                 <label>
+
                     Senha
 
                     <input
                         type="password"
                         value={password}
-                        onChange={(event) => setPassword(event.target.value)}
+                        onChange={(event) =>
+                            setPassword(event.target.value)
+                        }
                         required
                     />
+
                 </label>
 
-                <button type="submit" disabled={carregando}>
+
+
+                <button
+                    type="submit"
+                    disabled={carregando}
+                >
+
                     {
                         carregando
                             ? "Aguarde..."
@@ -1485,28 +1847,43 @@ export default function AuthForm({ onLogin }) {
                                 ? "Entrar"
                                 : "Cadastrar"
                     }
+
                 </button>
 
             </form>
 
+
+
             {mensagem && (
+
                 <p className="message">
                     {mensagem}
                 </p>
+
             )}
+
+
 
             <button
                 className="link-button"
                 onClick={() => {
-                    setModo(modo === "login" ? "cadastro" : "login")
+
+                    setModo(
+                        modo === "login"
+                            ? "cadastro"
+                            : "login"
+                    )
+
                     setMensagem("")
                 }}
             >
+
                 {
                     modo === "login"
                         ? "Ainda não tenho conta"
                         : "Já tenho uma conta"
                 }
+
             </button>
 
         </section>
@@ -1518,10 +1895,12 @@ export default function AuthForm({ onLogin }) {
 components/PostForm.jsx
 ```jsx
 import { useEffect, useState } from "react"
+
 import {
     atualizarPost,
     criarPost
 } from "../services/api"
+
 
 export default function PostForm({
     token,
@@ -1530,27 +1909,48 @@ export default function PostForm({
     onCancelar
 }) {
 
+    // =========================================================
+    // 1. ESTADOS DO FORMULÁRIO
+    // =========================================================
+
     const [title, setTitle] = useState("")
     const [content, setContent] = useState("")
+
     const [mensagem, setMensagem] = useState("")
     const [carregando, setCarregando] = useState(false)
 
 
+
+    // =========================================================
+    // 2. VERIFICANDO SE ESTAMOS CRIANDO OU EDITANDO
+    // =========================================================
+
     useEffect(() => {
 
+        // Se recebemos um postEmEdicao,
+        // significa que o usuário clicou no botão Editar.
         if (postEmEdicao) {
 
+            // Preenchemos o formulário com os dados atuais
+            // daquele post.
             setTitle(postEmEdicao.title)
             setContent(postEmEdicao.content)
 
         } else {
 
+            // Se não existe postEmEdicao,
+            // deixamos o formulário vazio.
             setTitle("")
             setContent("")
         }
 
     }, [postEmEdicao])
 
+
+
+    // =========================================================
+    // 3. ENVIANDO O FORMULÁRIO
+    // =========================================================
 
     async function handleSubmit(event) {
 
@@ -1559,34 +1959,85 @@ export default function PostForm({
         setMensagem("")
         setCarregando(true)
 
+
         try {
+
+            // =================================================
+            // 4. ATUALIZANDO UM POST
+            // =================================================
 
             if (postEmEdicao) {
 
+                // Chamamos atualizarPost() enviando:
+                //
+                // 1º parâmetro:
+                // ID do post
+                //
+                // 2º parâmetro:
+                // novos dados
+                //
+                // 3º parâmetro:
+                // TOKEN do usuário
+                //
+                // O token é obrigatório porque editar um post
+                // é uma ação protegida pelo backend.
                 await atualizarPost(
+
                     postEmEdicao.id,
+
                     {
                         title,
                         content
                     },
+
                     token
                 )
 
+
             } else {
 
+                // =================================================
+                // 5. CRIANDO UM POST
+                // =================================================
+
+                // Para criar também precisamos do token.
+                //
+                // O backend precisa descobrir qual usuário
+                // está realizando a operação.
+                //
+                // Por isso enviamos:
+                //
+                // dados do post
+                // +
+                // token do usuário
                 await criarPost(
+
                     {
                         title,
                         content
                     },
+
                     token
                 )
             }
 
+
+
+            // =================================================
+            // 6. DEPOIS QUE O BACKEND RESPONDE COM SUCESSO
+            // =================================================
+
+            // Limpamos o formulário.
             setTitle("")
             setContent("")
 
+
+            // Avisamos o componente App que o post foi salvo.
+            //
+            // O App então busca novamente a lista de posts
+            // no backend.
             onSalvo()
+
 
         } catch (error) {
 
@@ -1599,36 +2050,57 @@ export default function PostForm({
     }
 
 
+
     return (
+
         <section className="card">
 
             <h2>
-                {postEmEdicao ? "Editar post" : "Novo post"}
+                {
+                    postEmEdicao
+                        ? "Editar post"
+                        : "Novo post"
+                }
             </h2>
+
+
 
             <form onSubmit={handleSubmit}>
 
+
                 <label>
+
                     Título
 
                     <input
                         type="text"
                         value={title}
-                        onChange={(event) => setTitle(event.target.value)}
+                        onChange={(event) =>
+                            setTitle(event.target.value)
+                        }
                         required
                     />
+
                 </label>
 
+
+
                 <label>
+
                     Conteúdo
 
                     <textarea
                         value={content}
-                        onChange={(event) => setContent(event.target.value)}
+                        onChange={(event) =>
+                            setContent(event.target.value)
+                        }
                         required
                         rows="6"
                     />
+
                 </label>
+
+
 
                 <div className="actions">
 
@@ -1636,6 +2108,7 @@ export default function PostForm({
                         type="submit"
                         disabled={carregando}
                     >
+
                         {
                             carregando
                                 ? "Salvando..."
@@ -1643,9 +2116,13 @@ export default function PostForm({
                                     ? "Salvar alterações"
                                     : "Publicar"
                         }
+
                     </button>
 
+
+
                     {postEmEdicao && (
+
                         <button
                             type="button"
                             className="secondary"
@@ -1653,28 +2130,34 @@ export default function PostForm({
                         >
                             Cancelar
                         </button>
+
                     )}
 
                 </div>
 
             </form>
 
+
+
             {mensagem && (
+
                 <p className="message">
                     {mensagem}
                 </p>
+
             )}
 
         </section>
     )
 }
-
 ```
 
 components/PostList.jsx
 ```jsx
 import { Pencil, Trash2 } from "lucide-react"
+
 import { excluirPost } from "../services/api"
+
 
 export default function PostList({
     posts,
@@ -1684,21 +2167,57 @@ export default function PostList({
     onExcluido
 }) {
 
+
+    // =========================================================
+    // 1. EXCLUINDO UM POST
+    // =========================================================
+
     async function handleExcluir(post) {
 
+        // Antes de excluir, pedimos confirmação.
         const confirmou = window.confirm(
             `Deseja realmente excluir "${post.title}"?`
         )
+
 
         if (!confirmou) {
             return
         }
 
+
         try {
 
-            await excluirPost(post.id, token)
+            // =================================================
+            // 2. CHAMANDO O BACKEND
+            // =================================================
 
+            // Para excluir precisamos enviar:
+            //
+            // post.id
+            //     informa QUAL post deve ser excluído
+            //
+            // token
+            //     informa QUEM está fazendo a requisição
+            //
+            // A função excluirPost() enviará:
+            //
+            // DELETE /posts/:id
+            //
+            // junto com o token.
+            await excluirPost(
+                post.id,
+                token
+            )
+
+
+            // =================================================
+            // 3. ATUALIZANDO A LISTA
+            // =================================================
+
+            // Depois da exclusão,
+            // avisamos o App para buscar novamente os posts.
             onExcluido()
+
 
         } catch (error) {
 
@@ -1707,67 +2226,133 @@ export default function PostList({
     }
 
 
+
     if (posts.length === 0) {
+
         return (
+
             <section className="card">
                 <p>Nenhum post cadastrado ainda.</p>
             </section>
+
         )
     }
 
 
+
     return (
+
         <section className="posts">
 
             {posts.map(post => {
 
+
+                // =================================================
+                // 4. VERIFICANDO SE O POST PERTENCE AO USUÁRIO
+                // =================================================
+
+                // Para mostrar os botões Editar e Excluir,
+                // comparamos:
+                //
+                // ID do usuário dono do post
+                //
+                // com
+                //
+                // ID do usuário atualmente logado.
+                //
+                // Exemplo:
+                //
+                // post.user.id = 3
+                // usuario.id   = 3
+                //
+                // então ehDono será true.
                 const ehDono =
                     usuario &&
                     post.user &&
                     post.user.id === usuario.id
 
+
+
                 return (
-                    <article className="card post" key={post.id}>
+
+                    <article
+                        className="card post"
+                        key={post.id}
+                    >
 
                         <div className="post-header">
 
                             <div>
-                                <h2>{post.title}</h2>
+
+                                <h2>
+                                    {post.title}
+                                </h2>
 
                                 <small>
                                     por {post.user?.name || "Usuário"}
                                 </small>
+
                             </div>
 
+
+
+                            {/* 
+                                5. Só mostramos os botões
+                                se o usuário logado for o dono do post.
+
+                                IMPORTANTE:
+
+                                Essa verificação no frontend melhora
+                                a interface do usuário.
+
+                                Porém ela NÃO substitui a segurança
+                                do backend.
+
+                                O backend também precisa verificar
+                                o token e conferir se aquele usuário
+                                realmente é o dono do post.
+                            */}
                             {ehDono && (
+
                                 <div className="post-actions">
+
 
                                     <button
                                         className="icon-button"
-                                        onClick={() => onEditar(post)}
+                                        onClick={() =>
+                                            onEditar(post)
+                                        }
                                         title="Editar"
                                     >
                                         <Pencil size={18} />
                                     </button>
 
+
+
                                     <button
                                         className="icon-button danger"
-                                        onClick={() => handleExcluir(post)}
+                                        onClick={() =>
+                                            handleExcluir(post)
+                                        }
                                         title="Excluir"
                                     >
                                         <Trash2 size={18} />
                                     </button>
 
                                 </div>
+
                             )}
 
                         </div>
+
+
 
                         <p className="post-content">
                             {post.content}
                         </p>
 
                     </article>
+
                 )
             })}
 
@@ -1779,158 +2364,707 @@ export default function PostList({
 
 services/api.js
 ```js
+// =============================================================
+// 1. ENDEREÇO DO BACKEND
+// =============================================================
+
+// Aqui colocamos o endereço principal da nossa API.
+//
+// Nosso frontend React está rodando em um endereço.
+//
+// Exemplo:
+//
+// http://localhost:5173
+//
+// Enquanto nosso backend está rodando em outro:
+//
+// http://localhost:3000
+//
+// Quando usamos fetch(), o frontend envia uma requisição
+// HTTP para esse backend.
 const API_URL = "http://localhost:3000"
 
 
-// =========================================================
-// CADASTRO
-// =========================================================
+
+// =============================================================
+// 2. CADASTRO DE USUÁRIO
+// =============================================================
 
 export async function cadastrarUsuario(data) {
 
-    const response = await fetch(`${API_URL}/users`, {
-        method: "POST",
+    // =========================================================
+    // 2.1 O QUE TEM DENTRO DE "data"?
+    // =========================================================
 
-        headers: {
-            "Content-Type": "application/json"
-        },
+    // Essa função recebe um objeto vindo do AuthForm.
+    //
+    // Exemplo:
+    //
+    // {
+    //     name: "Leonardo",
+    //     email: "leo@email.com",
+    //     password: "123456"
+    // }
 
-        body: JSON.stringify(data)
-    })
 
+
+    // =========================================================
+    // 2.2 FAZENDO A REQUISIÇÃO PARA O BACKEND
+    // =========================================================
+
+    // fetch() é uma função do JavaScript utilizada
+    // para fazer requisições HTTP.
+    //
+    // Ela recebe principalmente dois parâmetros:
+    //
+    // 1º parâmetro:
+    // endereço da requisição
+    //
+    // 2º parâmetro:
+    // configurações da requisição
+    const response = await fetch(
+        `${API_URL}/users`,
+        {
+
+            // -------------------------------------------------
+            // 2.3 MÉTODO HTTP
+            // -------------------------------------------------
+
+            // POST é utilizado normalmente quando queremos
+            // criar um novo recurso.
+            //
+            // Neste caso:
+            // criar um novo usuário.
+            method: "POST",
+
+
+
+            // -------------------------------------------------
+            // 2.4 HEADERS
+            // -------------------------------------------------
+
+            // Headers são informações adicionais enviadas
+            // junto com a requisição.
+            headers: {
+
+                // Estamos avisando ao backend que o corpo
+                // da requisição está em formato JSON.
+                "Content-Type": "application/json"
+            },
+
+
+
+            // -------------------------------------------------
+            // 2.5 BODY
+            // -------------------------------------------------
+
+            // O body é o corpo da requisição.
+            //
+            // É onde enviamos os dados.
+            //
+            // Porém o fetch não envia diretamente
+            // um objeto JavaScript.
+            //
+            // Por isso usamos JSON.stringify().
+            //
+            // Ele transforma:
+            //
+            // {
+            //     name: "Leonardo"
+            // }
+            //
+            // em:
+            //
+            // '{"name":"Leonardo"}'
+            body: JSON.stringify(data)
+        }
+    )
+
+
+
+    // =========================================================
+    // 2.6 RECEBENDO A RESPOSTA
+    // =========================================================
+
+    // response contém várias informações da resposta HTTP.
+    //
+    // Entre elas:
+    //
+    // response.status
+    // response.ok
+    //
+    // Porém o conteúdo JSON enviado pelo backend
+    // precisa ser convertido.
+    //
+    // response.json() transforma o JSON recebido
+    // em um objeto JavaScript.
     const result = await response.json()
 
+
+
+    // =========================================================
+    // 2.7 VERIFICANDO ERROS
+    // =========================================================
+
+    // response.ok será true para respostas de sucesso.
+    //
+    // Normalmente status entre 200 e 299.
+    //
+    // Exemplos:
+    //
+    // 200 OK
+    // 201 Created
+    //
+    // Será false em erros como:
+    //
+    // 400 Bad Request
+    // 401 Unauthorized
+    // 404 Not Found
+    // 500 Internal Server Error
     if (!response.ok) {
-        throw new Error(result.message || "Erro ao cadastrar usuário.")
+
+        throw new Error(
+            result.message ||
+            "Erro ao cadastrar usuário."
+        )
     }
+
+
+
+    // =========================================================
+    // 2.8 DEVOLVENDO A RESPOSTA
+    // =========================================================
 
     return result
 }
 
 
-// =========================================================
-// LOGIN
-// =========================================================
+
+// =============================================================
+// 3. LOGIN
+// =============================================================
 
 export async function fazerLogin(data) {
 
-    const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
+    // =========================================================
+    // 3.1 ENVIANDO EMAIL E SENHA
+    // =========================================================
 
-        headers: {
-            "Content-Type": "application/json"
-        },
+    // Recebemos algo parecido com:
+    //
+    // {
+    //     email: "leo@email.com",
+    //     password: "123456"
+    // }
+    //
+    // E enviamos para:
+    //
+    // POST /auth/login
 
-        body: JSON.stringify(data)
-    })
+    const response = await fetch(
+        `${API_URL}/auth/login`,
+        {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify(data)
+        }
+    )
+
+
+
+    // =========================================================
+    // 3.2 RECEBENDO A RESPOSTA DO BACKEND
+    // =========================================================
 
     const result = await response.json()
 
+
+
     if (!response.ok) {
-        throw new Error(result.message || "Erro ao fazer login.")
+
+        throw new Error(
+            result.message ||
+            "Erro ao fazer login."
+        )
     }
+
+
+
+    // =========================================================
+    // 3.3 O BACKEND CRIA O TOKEN
+    // =========================================================
+
+    // Se email e senha estiverem corretos,
+    // o backend normalmente cria um JSON Web Token (JWT).
+    //
+    // A resposta pode ser parecida com:
+    //
+    // {
+    //     user: {
+    //         id: 1,
+    //         name: "Leonardo",
+    //         email: "leo@email.com"
+    //     },
+    //
+    //     token: "eyJhbGciOiJIUzI1NiIs..."
+    // }
+    //
+    // IMPORTANTE:
+    //
+    // O TOKEN É CRIADO PELO BACKEND.
+    //
+    // O frontend apenas:
+    //
+    // 1. recebe
+    // 2. guarda
+    // 3. envia novamente quando necessário.
 
     return result
 }
 
 
-// =========================================================
-// LISTAR POSTS
-// =========================================================
+
+// =============================================================
+// 4. LISTAR POSTS
+// =============================================================
 
 export async function listarPosts() {
 
-    const response = await fetch(`${API_URL}/posts`)
+    // =========================================================
+    // 4.1 ROTA PÚBLICA
+    // =========================================================
+
+    // Para listar os posts não precisamos enviar token.
+    //
+    // Isso significa que estamos considerando:
+    //
+    // GET /posts
+    //
+    // uma rota pública.
+    //
+    // Até alguém que não está logado pode visualizar os posts.
+    const response = await fetch(
+        `${API_URL}/posts`
+    )
+
+
 
     const result = await response.json()
 
+
+
     if (!response.ok) {
-        throw new Error(result.message || "Erro ao carregar posts.")
+
+        throw new Error(
+            result.message ||
+            "Erro ao carregar posts."
+        )
     }
+
+
 
     return result
 }
 
 
-// =========================================================
-// CRIAR POST
-// =========================================================
+
+// =============================================================
+// 5. CRIAR POST
+// =============================================================
 
 export async function criarPost(data, token) {
 
-    const response = await fetch(`${API_URL}/posts`, {
-        method: "POST",
+    // =========================================================
+    // 5.1 ESTA É UMA ROTA PROTEGIDA
+    // =========================================================
 
-        headers: {
-            "Content-Type": "application/json",
-
-            // O backend espera:
-            // Authorization: Bearer TOKEN
-            "Authorization": `Bearer ${token}`
-        },
-
-        body: JSON.stringify(data)
-    })
-
-    const result = await response.json()
-
-    if (!response.ok) {
-        throw new Error(result.message || "Erro ao criar post.")
-    }
-
-    return result
-}
+    // Para criar um post precisamos estar autenticados.
+    //
+    // O backend precisa saber:
+    //
+    // "Quem está tentando criar este post?"
+    //
+    // Para isso enviamos o token recebido durante o login.
 
 
-// =========================================================
-// ATUALIZAR POST
-// =========================================================
 
-export async function atualizarPost(id, data, token) {
+    const response = await fetch(
+        `${API_URL}/posts`,
+        {
 
-    const response = await fetch(`${API_URL}/posts/${id}`, {
-        method: "PUT",
-
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        },
-
-        body: JSON.stringify(data)
-    })
-
-    const result = await response.json()
-
-    if (!response.ok) {
-        throw new Error(result.message || "Erro ao atualizar post.")
-    }
-
-    return result
-}
+            method: "POST",
 
 
-// =========================================================
-// EXCLUIR POST
-// =========================================================
 
-export async function excluirPost(id, token) {
+            headers: {
 
-    const response = await fetch(`${API_URL}/posts/${id}`, {
-        method: "DELETE",
+                // -------------------------------------------------
+                // 5.2 TIPO DO CONTEÚDO
+                // -------------------------------------------------
 
-        headers: {
-            "Authorization": `Bearer ${token}`
+                "Content-Type": "application/json",
+
+
+
+                // -------------------------------------------------
+                // 5.3 ENVIANDO O TOKEN
+                // -------------------------------------------------
+
+                // O token é enviado normalmente no header:
+                //
+                // Authorization
+                //
+                // seguindo este formato:
+                //
+                // Authorization: Bearer TOKEN
+                //
+                // Exemplo:
+                //
+                // Authorization:
+                // Bearer eyJhbGciOiJIUzI1NiIs...
+                //
+                // "Bearer" significa que estamos apresentando
+                // um token de acesso.
+                "Authorization": `Bearer ${token}`
+            },
+
+
+
+            // -------------------------------------------------
+            // 5.4 DADOS DO POST
+            // -------------------------------------------------
+
+            // Exemplo:
+            //
+            // {
+            //     title: "Meu post",
+            //     content: "Conteúdo do post"
+            // }
+            body: JSON.stringify(data)
         }
-    })
+    )
 
-    // DELETE retorna 204 No Content.
-    // Nesse caso não existe JSON no corpo da resposta.
+
+
+    const result = await response.json()
+
+
+
     if (!response.ok) {
 
+        throw new Error(
+            result.message ||
+            "Erro ao criar post."
+        )
+    }
+
+
+
+    return result
+}
+
+
+
+// =============================================================
+// 6. O QUE ACONTECE COM O TOKEN NO BACKEND?
+// =============================================================
+
+// Quando essa requisição chegar ao backend:
+//
+// POST /posts
+//
+// teremos um header parecido com:
+//
+// Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+//
+// O middleware de autenticação do backend deverá:
+//
+// 1. pegar o header Authorization
+//
+// 2. separar a palavra "Bearer" do token
+//
+// 3. pegar apenas o token
+//
+// 4. verificar se o token é válido
+//
+// 5. descobrir qual usuário está dentro do token
+//
+// 6. permitir ou bloquear a requisição
+//
+// Portanto:
+//
+// FRONTEND
+//     envia o token
+//
+// BACKEND
+//     valida o token
+
+
+
+// =============================================================
+// 7. ATUALIZAR POST
+// =============================================================
+
+export async function atualizarPost(
+    id,
+    data,
+    token
+) {
+
+    // =========================================================
+    // 7.1 MONTANDO O ENDEREÇO
+    // =========================================================
+
+    // Se:
+    //
+    // id = 5
+    //
+    // a URL será:
+    //
+    // http://localhost:3000/posts/5
+
+
+    const response = await fetch(
+        `${API_URL}/posts/${id}`,
+        {
+
+            method: "PUT",
+
+
+
+            headers: {
+
+                // Como estamos enviando title e content,
+                // informamos que o conteúdo será JSON.
+                "Content-Type": "application/json",
+
+
+                // Como editar é uma operação protegida,
+                // enviamos novamente o JWT.
+                "Authorization": `Bearer ${token}`
+            },
+
+
+
+            // Novos dados do post.
+            body: JSON.stringify(data)
+        }
+    )
+
+
+
+    const result = await response.json()
+
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            result.message ||
+            "Erro ao atualizar post."
+        )
+    }
+
+
+
+    return result
+}
+
+
+
+// =============================================================
+// 8. SEGURANÇA AO EDITAR
+// =============================================================
+
+// O frontend pode esconder o botão "Editar"
+// de quem não é dono do post.
+//
+// Porém isso NÃO é segurança suficiente.
+//
+// Uma pessoa poderia abrir ferramentas como:
+//
+// Postman
+// Insomnia
+// Thunder Client
+//
+// e tentar manualmente:
+//
+// PUT /posts/5
+//
+// Por isso o backend precisa:
+//
+// 1. validar o token
+//
+// 2. descobrir o ID do usuário autenticado
+//
+// 3. buscar o post
+//
+// 4. verificar quem é o dono do post
+//
+// 5. comparar:
+//
+// post.user.id
+//
+// com:
+//
+// usuário autenticado
+//
+// 6. somente depois permitir a edição.
+
+
+
+// =============================================================
+// 9. EXCLUIR POST
+// =============================================================
+
+export async function excluirPost(
+    id,
+    token
+) {
+
+    const response = await fetch(
+        `${API_URL}/posts/${id}`,
+        {
+
+            // DELETE informa ao backend
+            // que queremos remover um recurso.
+            method: "DELETE",
+
+
+
+            headers: {
+
+                // Mesmo não existindo body,
+                // precisamos enviar o token,
+                // porque excluir é uma operação protegida.
+                "Authorization": `Bearer ${token}`
+            }
+        }
+    )
+
+
+
+    // =========================================================
+    // 9.1 STATUS 204
+    // =========================================================
+
+    // Uma exclusão normalmente pode retornar:
+    //
+    // 204 No Content
+    //
+    // Isso significa:
+    //
+    // "A operação funcionou, mas não existe
+    // conteúdo no corpo da resposta."
+    //
+    // Por isso NÃO fazemos diretamente:
+    //
+    // const result = await response.json()
+    //
+    // Se tentarmos transformar uma resposta vazia
+    // em JSON, pode ocorrer erro.
+
+
+
+    // =========================================================
+    // 9.2 SE A EXCLUSÃO DER ERRADO
+    // =========================================================
+
+    if (!response.ok) {
+
+        // Nesse caso esperamos que o backend
+        // tenha enviado uma mensagem JSON.
         const result = await response.json()
 
-        throw new Error(result.message || "Erro ao excluir post.")
+
+        throw new Error(
+            result.message ||
+            "Erro ao excluir post."
+        )
     }
 }
+
+
+
+// =============================================================
+// 10. RESUMO DO FLUXO DE AUTENTICAÇÃO
+// =============================================================
+
+// LOGIN:
+//
+// 1. O usuário digita email e senha.
+//
+// 2. O React chama:
+//
+//    fazerLogin()
+//
+// 3. fazerLogin() envia:
+//
+//    POST /auth/login
+//
+// 4. O backend verifica email e senha.
+//
+// 5. Se estiverem corretos,
+//    o backend cria um JSON Web Token.
+//
+// 6. O backend responde:
+//
+//    {
+//        user: {...},
+//        token: "..."
+//    }
+//
+// 7. O React recebe o token.
+//
+// 8. O App salva o token no estado.
+//
+// 9. Também salvamos o token no localStorage.
+//
+//
+//
+// REQUISIÇÃO PROTEGIDA:
+//
+// 10. O usuário tenta criar, editar ou excluir.
+//
+// 11. O frontend recupera o token.
+//
+// 12. O fetch envia:
+//
+//     Authorization: Bearer TOKEN
+//
+// 13. A requisição chega ao backend.
+//
+// 14. O middleware de autenticação
+//     pega o header Authorization.
+//
+// 15. O middleware verifica o JWT.
+//
+// 16. Se o token for válido,
+//     o backend descobre qual usuário está autenticado.
+//
+// 17. A requisição continua.
+//
+// 18. O controller/service executa a operação.
+//
+//
+//
+// TOKEN INVÁLIDO:
+//
+// Se o token:
+//
+// - não existir
+// - estiver errado
+// - estiver expirado
+//
+// o backend normalmente responde:
+//
+// 401 Unauthorized
+//
+// e a operação é bloqueada.
 
 ```
